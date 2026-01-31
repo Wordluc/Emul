@@ -5,18 +5,15 @@ const engineZ = @import("engine.zig");
 const utils = @import("utils.zig");
 const rl = @import("raylib");
 
-// 0x0***
-pub fn _0nnn(e: *engine, opCode: u16) anyerror!void {
-    const nnn = utils.GetVarFromOpCode(opCode, .nnn);
-    try e.reg.SetPC(nnn);
-}
 pub fn _00E0(e: *engine, _: u16) anyerror!void {
     fmt.print("Clear screen", .{});
     e.display.Clear();
 }
 pub fn _00EE(e: *engine, _: u16) anyerror!void {
-    try e.reg.SetPC(try e.stack.Pop());
+    const address = try e.stack.Pop();
+    try e.reg.SetPC(address);
 }
+pub fn _00nn(_: *engine, _: u16) anyerror!void {}
 
 // 0x1***
 pub fn _1nnn(e: *engine, opCode: u16) anyerror!void {
@@ -27,8 +24,10 @@ pub fn _1nnn(e: *engine, opCode: u16) anyerror!void {
 // 0x2***
 pub fn _2nnn(e: *engine, opCode: u16) anyerror!void {
     const nnn = utils.GetVarFromOpCode(opCode, .nnn);
-    try e.stack.Push(e.reg.PC);
-    try e.reg.SetPC(nnn);
+    e.stack.Push(e.reg.PC) catch {
+        return;
+    };
+    return e.reg.SetPC(nnn);
 }
 
 // 0x3***
@@ -273,16 +272,19 @@ pub fn _Fx33(e: *engine, opCode: u16) anyerror!void {
     try e.memory.SetByte(i, v_x % 10);
 }
 pub fn _Fx55(e: *engine, opCode: u16) anyerror!void {
-    const x = utils.GetVarFromOpCode(opCode, .x);
+    const x = utils.GetVarFromOpCode(opCode, .x) + 1;
     for (0..x) |i| {
         const u16_i = @as(u16, @intCast(i));
         try e.memory.SetByte(e.reg.I + u16_i, try e.reg.GetValue(u16_i));
     }
 }
 pub fn _Fx65(e: *engine, opCode: u16) anyerror!void {
-    const x = utils.GetVarFromOpCode(opCode, .x);
+    const x = utils.GetVarFromOpCode(opCode, .x) + 1;
     for (0..x) |i| {
         const u16_i = @as(u16, @intCast(i));
         try e.reg.SetVariable(u16_i, try e.memory.GetByte(e.reg.I + u16_i));
     }
+}
+pub fn _F000(_: *engine, _: u16) anyerror!void {
+    return error{Stop}.Stop;
 }

@@ -8,7 +8,7 @@ pub const N_MEMORY = 4096;
 const N_INSTRUCTIONS = 10;
 pub const PIXEL_X = 64;
 pub const PIXEL_Y = 32;
-pub const SIZE_PIXEL = 20;
+pub const SIZE_PIXEL = 10;
 pub const FONT_ADDRESS_END = 0x200;
 
 const timer = struct {
@@ -30,7 +30,13 @@ const keyboard = struct {
     pub fn IsDown(this: *@This(), x: u8) bool {
         return this.keys[x];
     }
-
+    pub fn Print(this: *@This()) void {
+        std.debug.print("--------------\n", .{});
+        for (this.map) |map| {
+            std.debug.print("{} {x} : {}\n", .{ map.char, map.hex, this.keys[map.hex] });
+        }
+        std.debug.print("--------------\n", .{});
+    }
     pub fn Refresh(this: *@This()) void {
         this.isSomethingPressed = false;
         for (this.map) |map| {
@@ -104,13 +110,20 @@ const stack = struct {
     stack: [N_STASK]u16,
     sp: u8 = 0,
     pub fn Pop(this: *@This()) !u16 {
-        const v = this.stack[this.sp];
+        if (this.sp == 0) {
+            return error{UnderFlow}.UnderFlow;
+        }
         this.sp -= 1;
+
+        const v = this.stack[this.sp];
         return v;
     }
     pub fn Push(this: *@This(), value: u16) !void {
-        this.sp += 1;
+        if (this.sp == N_STASK) {
+            return error{OverFlow}.OverFlow;
+        }
         this.stack[this.sp] = value;
+        this.sp += 1;
     }
 };
 pub const memory = struct {
@@ -179,7 +192,7 @@ pub const engine = struct {
         const h = @as(u16, try t.memory.GetByte(t.reg.PC));
         const l = try t.memory.GetByte(t.reg.PC + 1);
         const opCode = h << 8 | l;
-        try t.reg.SetPC(t.reg.PC + 2);
+        try t.reg.IncrementePC(2);
         try t.RunOpCode(opCode);
     }
 };
@@ -215,20 +228,20 @@ pub fn NewEngine() anyerror!engine {
 }
 fn getKeysMap() []const mapKey {
     return &[_]mapKey{
-        .{ .char = .one, .hex = 1 },
-        .{ .char = .two, .hex = 2 },
-        .{ .char = .three, .hex = 3 },
+        .{ .char = .one, .hex = 0x1 },
+        .{ .char = .two, .hex = 0x2 },
+        .{ .char = .three, .hex = 0x3 },
         .{ .char = .four, .hex = 0xC },
-        .{ .char = .q, .hex = 4 },
-        .{ .char = .w, .hex = 5 },
-        .{ .char = .e, .hex = 6 },
+        .{ .char = .q, .hex = 0x4 },
+        .{ .char = .w, .hex = 0x5 },
+        .{ .char = .e, .hex = 0x6 },
         .{ .char = .r, .hex = 0xD },
-        .{ .char = .a, .hex = 7 },
-        .{ .char = .s, .hex = 8 },
-        .{ .char = .d, .hex = 9 },
+        .{ .char = .a, .hex = 0x7 },
+        .{ .char = .s, .hex = 0x8 },
+        .{ .char = .d, .hex = 0x9 },
         .{ .char = .f, .hex = 0xE },
         .{ .char = .z, .hex = 0xA },
-        .{ .char = .x, .hex = 0 },
+        .{ .char = .x, .hex = 0x0 },
         .{ .char = .c, .hex = 0xB },
         .{ .char = .v, .hex = 0xF },
     };
@@ -238,7 +251,7 @@ fn getInstructionsSet() []const instructionSet {
         // 0x0***
         .{ .inst = "00E0", .callback = set._00E0 },
         .{ .inst = "00EE", .callback = set._00EE },
-        .{ .inst = "0...", .callback = set._0nnn },
+        .{ .inst = "00..", .callback = set._00nn },
         // 0x1***
         .{ .inst = "1...", .callback = set._1nnn },
         // 0x2***
@@ -286,5 +299,6 @@ fn getInstructionsSet() []const instructionSet {
         .{ .inst = "F.33", .callback = set._Fx33 },
         .{ .inst = "F.55", .callback = set._Fx55 },
         .{ .inst = "F.65", .callback = set._Fx65 },
+        .{ .inst = "F000", .callback = set._F000 },
     };
 }
