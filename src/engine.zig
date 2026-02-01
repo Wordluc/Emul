@@ -13,12 +13,18 @@ pub const FONT_ADDRESS_END = 0x200;
 
 const timer = struct {
     time: u8,
+    _time: f32 = 0,
+    rate: u16,
     fn Decrease(this: *@This()) bool {
         if (this.time == 0) {
             this.time = 0;
             return true;
         }
-        this.time = this.time - 1;
+        this._time = this._time - rl.getFrameTime();
+        if (this._time <= 0) {
+            this.time = this.time - 1;
+            this._time = 1.0 / @as(f32, @floatFromInt(this.rate));
+        }
         return false;
     }
 };
@@ -58,10 +64,10 @@ const display = struct {
     }
     pub fn SetByte(this: *@This(), _x: u8, _y: u16, v: u8) !bool {
         //WRAP ON THE LEFT/IRGHT
+        const y = @as(u16, @intCast(_y)) % PIXEL_Y;
         var collide = false;
         for (0..8) |i_left| {
             const x: u8 = @intCast((_x + i_left) % PIXEL_X);
-            const y = @as(u16, @intCast(_y)) % PIXEL_Y;
 
             //           const bit: u257 = @intCast((v >> @as(u3, @intCast(i_left))) & 1);
             const bit: u257 = (v >> @intCast(7 - i_left)) & 1;
@@ -153,6 +159,7 @@ pub const engine = struct {
     display: display,
     keyboard: keyboard,
     DT: timer,
+    ST: timer,
     waitForKey_x: u16,
     pub fn GetPreInst(t: *@This()) []const u8 {
         return t.preInst;
@@ -183,11 +190,13 @@ pub const engine = struct {
     pub fn RunCode(t: *@This()) !void {
         t.keyboard.Refresh();
         _ = t.DT.Decrease();
+        _ = t.ST.Decrease();
         if (t.waitForKey_x != 666) {
             if (!t.keyboard.isSomethingPressed) {
                 return;
             }
             try t.reg.SetVariable(t.waitForKey_x, t.keyboard.lastPressedKey);
+            t.waitForKey_x = 666;
         }
         const h = @as(u16, try t.memory.GetByte(t.reg.PC));
         const l = try t.memory.GetByte(t.reg.PC + 1);
@@ -222,7 +231,8 @@ pub fn NewEngine() anyerror!engine {
         .stack = .{ .stack = std.mem.zeroes([N_STASK]u16), .sp = 0 },
         .display = .{ .pixel = std.mem.zeroes([PIXEL_Y]u64) },
         .keyboard = .{ .keys = std.mem.zeroes([16]bool), .map = getKeysMap() },
-        .DT = .{ .time = 0 },
+        .DT = .{ .time = 0, .rate = 60 },
+        .ST = .{ .time = 0, .rate = 60 },
         .waitForKey_x = 666,
     };
 }

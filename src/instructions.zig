@@ -6,7 +6,6 @@ const utils = @import("utils.zig");
 const rl = @import("raylib");
 
 pub fn _00E0(e: *engine, _: u16) anyerror!void {
-    fmt.print("Clear screen", .{});
     e.display.Clear();
 }
 pub fn _00EE(e: *engine, _: u16) anyerror!void {
@@ -89,6 +88,7 @@ pub fn _8xy1(e: *engine, opCode: u16) anyerror!void {
     const v_y = try e.reg.GetValue(y);
     const v_x = try e.reg.GetValue(x);
     try e.reg.SetVariable(x, v_y | v_x);
+    try e.reg.SetVariable(15, 0);
 }
 pub fn _8xy2(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
@@ -96,6 +96,7 @@ pub fn _8xy2(e: *engine, opCode: u16) anyerror!void {
     const v_y = try e.reg.GetValue(y);
     const v_x = try e.reg.GetValue(x);
     try e.reg.SetVariable(x, v_y & v_x);
+    try e.reg.SetVariable(15, 0);
 }
 pub fn _8xy3(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
@@ -103,6 +104,7 @@ pub fn _8xy3(e: *engine, opCode: u16) anyerror!void {
     const v_y = try e.reg.GetValue(y);
     const v_x = try e.reg.GetValue(x);
     try e.reg.SetVariable(x, v_y ^ v_x);
+    try e.reg.SetVariable(15, 0);
 }
 pub fn _8xy4(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
@@ -134,9 +136,10 @@ pub fn _8xy5(e: *engine, opCode: u16) anyerror!void {
 }
 pub fn _8xy6(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
-    const v_x = try e.reg.GetValue(x);
-    const lowest_bit = v_x & (0x1);
-    try e.reg.SetVariable(x, v_x / 2);
+    const y = utils.GetVarFromOpCode(opCode, .y);
+    const v_y = try e.reg.GetValue(y);
+    const lowest_bit = v_y & (0x1);
+    try e.reg.SetVariable(x, v_y / 2);
     if (lowest_bit != 0) {
         try e.reg.SetVariable(15, 0x1);
     } else {
@@ -159,13 +162,14 @@ pub fn _8xy7(e: *engine, opCode: u16) anyerror!void {
 }
 pub fn _8xyE(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
-    const v_x = try e.reg.GetValue(x);
-    const highest_bit = v_x & (0x1 << 7);
-    try e.reg.SetVariable(x, @as(u16, @intCast(v_x)) * 2);
+    const y = utils.GetVarFromOpCode(opCode, .y);
+    const v_y = try e.reg.GetValue(y);
+    const highest_bit = v_y & (0x1 << 7);
+    try e.reg.SetVariable(x, v_y * 2);
     if (highest_bit != 0) {
         try e.reg.SetVariable(15, 0x1);
     } else {
-        try e.reg.SetVariable(15, 0x0);
+        try e.reg.SetVariable(15, 0x00);
     }
 }
 
@@ -224,14 +228,16 @@ pub fn _Dxyn(e: *engine, opCode: u16) anyerror!void {
 
 // 0xE***
 pub fn _Ex9E(e: *engine, opCode: u16) anyerror!void {
-    const x: u8 = @intCast(utils.GetVarFromOpCode(opCode, .x));
-    if (e.keyboard.IsDown(x)) {
+    const x = utils.GetVarFromOpCode(opCode, .x);
+    const v_x = try e.reg.GetValue(x);
+    if (e.keyboard.IsDown(v_x)) {
         try e.reg.IncrementePC(2);
     }
 }
 pub fn _ExA1(e: *engine, opCode: u16) anyerror!void {
-    const x: u8 = @intCast(utils.GetVarFromOpCode(opCode, .x));
-    if (!e.keyboard.IsDown(x)) {
+    const x = utils.GetVarFromOpCode(opCode, .x);
+    const v_x = try e.reg.GetValue(x);
+    if (!e.keyboard.IsDown(v_x)) {
         try e.reg.IncrementePC(2);
     }
 }
@@ -251,7 +257,11 @@ pub fn _Fx15(e: *engine, opCode: u16) anyerror!void {
     e.DT.time = v_x;
 }
 //Sound
-pub fn _Fx18(_: *engine, _: u16) anyerror!void {}
+pub fn _Fx18(e: *engine, opCode: u16) anyerror!void {
+    const x = utils.GetVarFromOpCode(opCode, .x);
+    const v_x = try e.reg.GetValue(x);
+    e.ST.time = v_x;
+}
 pub fn _Fx1E(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
     const v_x = try e.reg.GetValue(x);
@@ -277,6 +287,7 @@ pub fn _Fx55(e: *engine, opCode: u16) anyerror!void {
         const u16_i = @as(u16, @intCast(i));
         try e.memory.SetByte(e.reg.I + u16_i, try e.reg.GetValue(u16_i));
     }
+    e.reg.I = e.reg.I + x;
 }
 pub fn _Fx65(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x) + 1;
@@ -284,6 +295,7 @@ pub fn _Fx65(e: *engine, opCode: u16) anyerror!void {
         const u16_i = @as(u16, @intCast(i));
         try e.reg.SetVariable(u16_i, try e.memory.GetByte(e.reg.I + u16_i));
     }
+    e.reg.I = e.reg.I + x;
 }
 pub fn _F000(_: *engine, _: u16) anyerror!void {
     return error{Stop}.Stop;

@@ -26,6 +26,7 @@ pub fn main() !void {
         engine.PIXEL_Y * engine.SIZE_PIXEL,
         "Emul",
     );
+    rl.initAudioDevice();
     defer rl.closeWindow();
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -33,16 +34,20 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     var e = try engine.NewEngine();
     try utils.LoadFont(&e.memory, 0x0);
-    const source_code = try loadSourceCode(allocator, "roms/4-flags.ch8");
+    //TODO: to test 5-quirks.ch8 5-quirks.ch8, 6-keypad.ch8
+    const source_code = try loadSourceCode(allocator, "roms/5-quirks.ch8");
     defer allocator.free(source_code);
+    const beep: rl.Sound = try rl.loadSound("beep.wav");
 
     try e.reg.SetPC(engine.FONT_ADDRESS_END);
     try utils.LoadCode(&e.memory, engine.FONT_ADDRESS_END, source_code);
     while (!rl.windowShouldClose()) {
         rl.beginDrawing();
-        rl.clearBackground(.black);
         try e.RunCode();
-        try e.display.Draw();
+        if (e.ST.time > 0) {
+            rl.playSound(beep);
+        }
+        rl.clearBackground(.black);
         rl.endDrawing();
     }
 }
