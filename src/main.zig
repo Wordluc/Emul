@@ -1,7 +1,6 @@
 const rl = @import("raylib");
 const ru = @import("raygui");
 const utils = @import("utils.zig");
-const eql = @import("std").mem.eql;
 
 const engine = @import("engine.zig");
 const std = @import("std");
@@ -47,6 +46,7 @@ pub fn main() !void {
         if (e.ST.time > 0) {
             rl.playSound(beep);
         }
+        try e.display.Draw();
         rl.clearBackground(.black);
         rl.endDrawing();
     }
