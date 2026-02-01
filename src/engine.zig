@@ -89,7 +89,7 @@ const display = struct {
                 if (pixel != 0) {
                     rl.drawRectangle(@intCast(x * SIZE_PIXEL), @intCast(y * SIZE_PIXEL), SIZE_PIXEL, SIZE_PIXEL, .green);
                 } else {
-                    rl.drawRectangle(@intCast(x * SIZE_PIXEL), @intCast(y * SIZE_PIXEL), SIZE_PIXEL, SIZE_PIXEL, .black);
+                    rl.drawRectangle(@intCast(x * SIZE_PIXEL), @intCast(y * SIZE_PIXEL), SIZE_PIXEL, SIZE_PIXEL, .gray);
                 }
             }
         }
@@ -160,6 +160,7 @@ pub const engine = struct {
     keyboard: keyboard,
     DT: timer,
     ST: timer,
+    beep: rl.Sound,
     waitForKey_x: u16,
     pub fn GetPreInst(t: *@This()) []const u8 {
         return t.preInst;
@@ -189,6 +190,9 @@ pub const engine = struct {
     }
     pub fn RunCode(t: *@This()) !void {
         t.keyboard.Refresh();
+        if (t.ST.time > 0) {
+            rl.playSound(t.beep);
+        }
         _ = t.DT.Decrease();
         _ = t.ST.Decrease();
         if (t.waitForKey_x != 666) {
@@ -234,6 +238,7 @@ pub fn NewEngine() anyerror!engine {
         .DT = .{ .time = 0, .rate = 60 },
         .ST = .{ .time = 0, .rate = 60 },
         .waitForKey_x = 666,
+        .beep = try rl.loadSound("beep.wav"),
     };
 }
 fn getKeysMap() []const mapKey {
