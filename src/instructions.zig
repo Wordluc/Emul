@@ -269,7 +269,8 @@ pub fn _Fx1E(e: *engine, opCode: u16) anyerror!void {
 }
 pub fn _Fx29(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);
-    e.reg.I = 5 * x + engineZ.FONT_ADDRESS_END;
+    const v_x: u16 = @intCast(try e.reg.GetValue(x));
+    e.reg.I = 5 * v_x;
 }
 pub fn _Fx33(e: *engine, opCode: u16) anyerror!void {
     const x = utils.GetVarFromOpCode(opCode, .x);

@@ -4,14 +4,13 @@ const utils = @import("utils.zig");
 
 const engine = @import("engine.zig");
 const std = @import("std");
-const W_EDITOR = 700;
+const W_EDITOR = 150;
 const H_EDITOR = 400;
 const W_GAME = engine.PIXEL_X * engine.SIZE_PIXEL;
 const H_GAME = engine.PIXEL_Y * engine.SIZE_PIXEL;
 const H_BUTTON = 30;
 
 fn loadSourceCode(
-    allocator: std.mem.Allocator,
     path: []const u8,
 ) ![]u8 {
     const file = try std.fs.cwd().openFile(path, .{});
@@ -46,7 +45,7 @@ fn DrawTable(regs: []cellTable, _y: f32, _x: f32, col: f32, title: [:0]const u8)
         if (r.value_u8) |p| {
             regName = try std.fmt.bufPrintZ(&buf, "{s}{}", .{ r.name, p.* });
         } else if (r.value_u16) |p| {
-            regName = try std.fmt.bufPrintZ(&buf, "{s}{}", .{ r.name, p.* });
+            regName = try std.fmt.bufPrintZ(&buf, "{s}{x}", .{ r.name, p.* });
         } else if (r.value_bool) |p| {
             regName = try std.fmt.bufPrintZ(&buf, "{s}{s}", .{ r.name, if (p.*) "Down" else "Up" });
         }
@@ -55,6 +54,39 @@ fn DrawTable(regs: []cellTable, _y: f32, _x: f32, col: f32, title: [:0]const u8)
         i = i + 1;
     }
 }
+
+fn drawMemory(x: f32, y: f32, comptime rowsToDisplay: u8, eng: *engine.engine) !void {
+    var arrayRows: [rowsToDisplay]cellTable = undefined;
+
+    var arrayNames: std.ArrayList([]const u8) = .empty;
+    defer {
+        for (arrayNames.items) |item| {
+            allocator.free(item);
+        }
+        arrayNames.deinit(allocator);
+    }
+
+    var arrayValues: [rowsToDisplay]u16 = undefined;
+    const offset_from_pc = 8;
+    const first_address = eng.reg.PC - offset_from_pc;
+    var address_to_draw = first_address;
+    var row: u16 = 0;
+    for (0..rowsToDisplay) |i| {
+        row += 2;
+        address_to_draw = first_address + row;
+
+        if (address_to_draw == eng.reg.PC) {
+            try arrayNames.append(allocator, try std.fmt.allocPrint(allocator, "=>{x}: ", .{address_to_draw}));
+        } else {
+            try arrayNames.append(allocator, try std.fmt.allocPrint(allocator, "  {x}: ", .{address_to_draw}));
+        }
+        arrayValues[i] = eng.GetOpCode(address_to_draw);
+        arrayRows[i] = .{ .name = arrayNames.getLast(), .value_u16 = &arrayValues[i], .size_cell = 200 };
+    }
+    try DrawTable(&arrayRows, y, x, 1, "Memory");
+}
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
 pub fn main() !void {
     rl.initWindow(
         W_GAME + W_EDITOR,
@@ -64,13 +96,12 @@ pub fn main() !void {
     rl.initAudioDevice();
     defer rl.closeWindow();
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
     var e = try engine.NewEngine();
+    rl.setTargetFPS(700);
     try utils.LoadFont(&e.memory, 0x0);
     //TODO: to test 5-quirks.ch8 5-quirks.ch8, 6-keypad.ch8
-    const source_code = try loadSourceCode(allocator, "roms/tank.rom");
+    const source_code = try loadSourceCode("roms/pumpkindressup.ch8");
     defer allocator.free(source_code);
 
     try e.reg.SetPC(engine.FONT_ADDRESS_END);
@@ -123,6 +154,7 @@ pub fn main() !void {
         }
         try DrawTable(&regsView, H_GAME + 40, 0, 4, "Registri");
         try DrawTable(&keyView, H_GAME + 40, 300, 4, "Tastiera");
+        try drawMemory(W_GAME + 50, 0, 20, &e);
         if (stop) {
             if (ru.button(.{ .x = 0, .height = H_BUTTON, .width = 60, .y = H_GAME }, "<<")) {
                 try e.reg.SetPC(e.reg.PC - 2);

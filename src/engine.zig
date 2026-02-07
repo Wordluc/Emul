@@ -188,6 +188,11 @@ pub const engine = struct {
             }
         }
     }
+    pub fn GetOpCode(t: *@This(), address: u16) u16 {
+        const h = @as(u16, try t.memory.GetByte(address));
+        const l = try t.memory.GetByte(address + 1);
+        return h << 8 | l;
+    }
     pub fn RunCode(t: *@This()) !void {
         t.keyboard.Refresh();
         if (t.ST.time > 0) {
@@ -202,9 +207,7 @@ pub const engine = struct {
             try t.reg.SetVariable(t.waitForKey_x, t.keyboard.lastPressedKey);
             t.waitForKey_x = 666;
         }
-        const h = @as(u16, try t.memory.GetByte(t.reg.PC));
-        const l = try t.memory.GetByte(t.reg.PC + 1);
-        const opCode = h << 8 | l;
+        const opCode = t.GetOpCode(t.reg.PC);
         try t.reg.IncrementePC(2);
         try t.RunOpCode(opCode);
     }
